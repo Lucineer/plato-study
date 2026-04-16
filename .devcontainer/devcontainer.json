@@ -1,0 +1,9 @@
+{
+  "name": "PLATO Study",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "forwardPorts": [8100],
+  "postCreateCommand": "pip install fastapi uvicorn pyyaml && cd /workspaces/plato-study && python3 http-api/plato_server.py",
+  "portsAttributes": {
+    "8100": { "label": "PLATO Study API" }
+  }
+}
