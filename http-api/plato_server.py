@@ -2,7 +2,8 @@
 import yaml, os, sys, importlib.util, json
 from pathlib import Path
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
@@ -20,9 +21,10 @@ def write_yaml(p, d):
     os.replace(t, p)
 
 class Command(BaseModel):
-    agent: str
-    action: str
+    agent: str = "unknown"
+    action: str = "status"
     expert_id: Optional[str] = None
+    expert: Optional[str] = None
     topic: Optional[str] = None
     brief: Optional[str] = None
     model: Optional[str] = None
@@ -31,14 +33,23 @@ class Command(BaseModel):
     name: Optional[str] = None
     content: Optional[str] = None
     entry_type: Optional[str] = None
+    type: Optional[str] = None
     sha: Optional[str] = None
     checkpoint_label: Optional[str] = None
     new_expert_name: Optional[str] = None
     label: Optional[str] = None
     note: Optional[str] = None
 
+    class Config:
+        extra = "allow"
+
 @app.post("/command")
-async def run_command(cmd: dict):
+async def run_command(request: Request):
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    cmd = dict(body)
     cid = f"{os.urandom(4).hex()}"
     cmds = BASE / "commands"
     cmds.mkdir(parents=True, exist_ok=True)
