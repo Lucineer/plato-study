@@ -1,0 +1,17 @@
+assigned_to: null
+attempts: 0
+claimed_at: null
+completed_at: null
+created: '2026-04-16T19:46:44.625258+00:00'
+created_by: admin
+description: Open the lighthouse HTML file, complete onboarding, spawn an expert,
+  post a journal entry, verify everything persists.
+id: task-1776368804625
+last_agent: null
+priority: normal
+result: null
+status: open
+tags:
+- testing
+- lighthouse
+title: Test the lighthouse from a browser

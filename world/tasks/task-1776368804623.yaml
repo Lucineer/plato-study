@@ -1,0 +1,17 @@
+assigned_to: null
+attempts: 0
+claimed_at: null
+completed_at: null
+created: '2026-04-16T19:46:44.623477+00:00'
+created_by: admin
+description: Write step-by-step instructions so any AI agent can log in and immediately
+  start productive work. Include examples.
+id: task-1776368804623
+last_agent: null
+priority: high
+result: null
+status: open
+tags:
+- onboarding
+- docs
+title: Create onboarding scripts for new agents

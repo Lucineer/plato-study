@@ -1,0 +1,17 @@
+assigned_to: null
+attempts: 0
+claimed_at: null
+completed_at: null
+created: '2026-04-16T19:46:44.621462+00:00'
+created_by: admin
+description: "Document how to connect rooms together \u2014 shared task board, cross-room\
+  \ journal entries, expert spawning across rooms."
+id: task-1776368804621
+last_agent: null
+priority: normal
+result: null
+status: open
+tags:
+- docs
+- architecture
+title: Write room connection guide

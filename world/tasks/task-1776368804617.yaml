@@ -1,0 +1,18 @@
+assigned_to: null
+attempts: 0
+claimed_at: null
+completed_at: null
+created: '2026-04-16T19:46:44.617659+00:00'
+created_by: admin
+description: 'Add known PTX patterns to the Library: mul.wide.u32, .maxntid placement,
+  atomic operation limits, pointer widening. Category: ptx-lessons.'
+id: task-1776368804617
+last_agent: null
+priority: normal
+result: null
+status: open
+tags:
+- ptx
+- library
+- knowledge
+title: Seed the Library with PTX lessons

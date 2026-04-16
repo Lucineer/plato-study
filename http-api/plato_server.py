@@ -11,6 +11,13 @@ import uvicorn
 app = FastAPI(title="PLATO Study")
 BASE = Path(__file__).parent.parent / "world"
 
+# Agent gateway
+sys.path.insert(0, str(Path(__file__).parent.parent / "bridges"))
+import agent_gateway
+_gateway = agent_gateway
+
+_sessions = {}  # session_id -> username mapping
+
 def read_yaml(p):
     try: return yaml.safe_load(open(p)) or {}
     except: return {}
@@ -19,6 +26,10 @@ def write_yaml(p, d):
     t = str(p)+".tmp"
     open(t,"w").write(yaml.dump(d, default_flow_style=False))
     os.replace(t, p)
+
+# Seed agent tasks on import
+_gateway.AGENT_DIR.mkdir(parents=True, exist_ok=True)
+_gateway.seed_tasks()
 
 class Command(BaseModel):
     agent: str = "unknown"
@@ -73,6 +84,62 @@ async def experts():
 @app.get("/journal")
 async def journal(limit: int = 50):
     return {"entries": [read_yaml(f) for f in sorted((BASE/"journals").glob("*.yaml"))[-limit:]]}
+
+@app.post("/agent/login")
+async def agent_login(body: dict):
+    """Agent authenticates with username/password, gets session token."""
+    username = body.get("username", "")
+    password = body.get("password", "")
+    session, err = _gateway.authenticate(username, password)
+    if err:
+        return JSONResponse(status_code=401, content={"error": err})
+    _sessions[session["session_id"]] = username
+    onboarding = _gateway.get_onboarding(username)
+    return {"session_id": session["session_id"], "username": username, "onboarding": onboarding}
+
+@app.post("/agent/command")
+async def agent_command(body: dict):
+    """Agent sends a text command. Session token required."""
+    session_id = body.get("session_id", "")
+    command = body.get("command", "")
+    if not session_id or not command:
+        return JSONResponse(status_code=400, content={"error": "session_id and command required"})
+    username = _sessions.get(session_id)
+    if not username:
+        return JSONResponse(status_code=401, content={"error": "Invalid or expired session"})
+    result = _gateway.process_agent_command(username, session_id, command)
+    return result
+
+@app.post("/agent/create")
+async def agent_create(body: dict):
+    """Admin: create an agent account."""
+    admin_key = body.get("admin_key", "")
+    if admin_key != os.environ.get("PLATO_ADMIN_KEY", "plato-admin"):
+        return JSONResponse(status_code=403, content={"error": "Invalid admin key"})
+    return _gateway.create_agent(
+        body.get("username", ""), body.get("password", ""),
+        body.get("role", "worker"), body.get("skills", []), body.get("notes", "")
+    )
+
+@app.get("/agent/tasks")
+async def agent_tasks(status: str = None, assigned_to: str = None):
+    """Public task board (no auth needed for reading)."""
+    return _gateway.list_tasks(status_filter=status, assigned_to=assigned_to)
+
+@app.post("/agent/create-task")
+async def agent_create_task(body: dict):
+    """Admin: create a task."""
+    admin_key = body.get("admin_key", "")
+    if admin_key != os.environ.get("PLATO_ADMIN_KEY", "plato-admin"):
+        return JSONResponse(status_code=403, content={"error": "Invalid admin key"})
+    return _gateway.create_task(
+        body.get("title", ""), body.get("description", ""),
+        body.get("priority", "normal"), body.get("tags", []), body.get("created_by", "admin")
+    )
+
+@app.get("/rooms")
+async def room_map():
+    return _gateway.get_room_map()
 
 @app.get("/")
 async def root():

@@ -1,0 +1,17 @@
+assigned_to: null
+attempts: 0
+claimed_at: null
+completed_at: null
+created: '2026-04-16T19:46:44.615866+00:00'
+created_by: admin
+description: Read the README files in each room repo. Identify gaps, inconsistencies,
+  or missing information. Post findings to the Library.
+id: task-1776368804615
+last_agent: null
+priority: normal
+result: null
+status: open
+tags:
+- docs
+- review
+title: Review room documentation
