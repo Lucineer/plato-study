@@ -45,15 +45,19 @@ class Command(BaseModel):
 
 @app.post("/command")
 async def run_command(cmd: Command):
-    cid = f"{os.urandom(4).hex()}"
-    cmds = BASE / "commands"
-    cmds.mkdir(parents=True, exist_ok=True)
-    write_yaml(cmds / f"{cid}.yaml", cmd)
-    sys.path.insert(0, str(Path(__file__).parent.parent / "bridges"))
-    import study_engine
-    study_engine.process_turns()
-    logs = sorted((BASE / "logs").glob("*.yaml"))
-    return read_yaml(logs[-1]) if logs else {"status": "processed"}
+    try:
+        cid = f"{os.urandom(4).hex()}"
+        cmds = BASE / "commands"
+        cmds.mkdir(parents=True, exist_ok=True)
+        write_yaml(cmds / f"{cid}.yaml", cmd.dict(exclude_none=True))
+        sys.path.insert(0, str(Path(__file__).parent.parent / "bridges"))
+        import study_engine
+        study_engine.process_turns()
+        logs = sorted((BASE / "logs").glob("*.yaml"))
+        return read_yaml(logs[-1]) if logs else {"status": "processed"}
+    except Exception as e:
+        import traceback
+        return JSONResponse(status_code=200, content={"error": str(e), "traceback": traceback.format_exc()})
 
 @app.get("/status")
 async def status():
