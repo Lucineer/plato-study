@@ -3,7 +3,7 @@ import yaml, os, sys, importlib.util, json
 from pathlib import Path
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
@@ -76,8 +76,10 @@ async def journal(limit: int = 50):
 
 @app.get("/")
 async def root():
-    return {"room": "PLATO Study", "docs": "/docs", "status": "/status", "experts": "/experts", "journal": "/journal",
-            "post_command": "/command", "github": "https://github.com/Lucineer/plato-study"}
+    html_file = Path(__file__).parent / "index.html"
+    if html_file.exists():
+        return HTMLResponse(html_file.read_text())
+    return JSONResponse({"room": "PLATO Study", "docs": "/docs", "status": "/status", "experts": "/experts", "journal": "/journal", "command": "/command", "github": "https://github.com/Lucineer/plato-study"})
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8100)
