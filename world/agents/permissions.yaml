@@ -1,0 +1,33 @@
+forgemaster:
+  chess-dojo: write
+  ct-lab: read
+  cuda-dreamcycle: admin
+  dreamcycle: write
+  forge: admin
+  harbor: write
+  library: read
+  ptx-room: write
+  study: read
+  updated: '2026-04-16T19:55:57.651678+00:00'
+kimi-worker:
+  chess-dojo: read
+  ct-lab: write
+  cuda-dreamcycle: none
+  dreamcycle: none
+  forge: read
+  harbor: read
+  library: write
+  ptx-room: read
+  study: write
+  updated: '2026-04-16T19:55:57.646717+00:00'
+zai-worker:
+  chess-dojo: none
+  ct-lab: read
+  cuda-dreamcycle: none
+  dreamcycle: none
+  forge: none
+  harbor: read
+  library: read
+  ptx-room: none
+  study: write
+  updated: '2026-04-16T19:55:57.643222+00:00'
