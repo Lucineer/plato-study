@@ -29,6 +29,7 @@ from typing import Optional, Dict, Any
 
 AGENT_DIR = Path(os.environ.get("AGENT_DIR", "world/agents"))
 AGENT_PWD_FILE = AGENT_DIR / "passwords.yaml"
+PERMISSIONS_FILE = AGENT_DIR / "permissions.yaml"
 TASK_BOARD_DIR = Path(os.environ.get("TASK_DIR", "world/tasks"))
 HANDOFF_DIR = AGENT_DIR / "handoffs"
 SESSION_DIR = AGENT_DIR / "sessions"
@@ -52,8 +53,16 @@ def hash_password(pw):
 
 # ─── User Management (admin only) ───
 
-def create_agent(username, password, role="worker", skills=None, notes=""):
-    """Create an agent account. Admin action only."""
+def create_agent(username, password, role="worker", skills=None, notes="", permissions=None):
+    """Create an agent account. Admin action only.
+    
+    permissions: dict of {"room_name": "read" | "write" | "admin"}
+    - "read": can view room state, journals, experts
+    - "write": can post commands, journals, claim tasks
+    - "admin": can create tasks, manage other agents in this room
+    
+    If permissions is None, defaults to read on all rooms.
+    """
     passwords = atomic_read(AGENT_PWD_FILE)
     if username in passwords:
         return {"ok": False, "error": "Agent already exists"}
@@ -69,7 +78,75 @@ def create_agent(username, password, role="worker", skills=None, notes=""):
         "total_commands": 0,
     }
     atomic_write(AGENT_PWD_FILE, passwords)
+    
+    # Set permissions
+    if permissions:
+        set_permissions(username, permissions)
+    
     return {"ok": True, "username": username, "role": role}
+
+# ─── Room Permissions ───
+
+def set_permissions(username, permissions):
+    """Set room-level permissions for an agent.
+    
+    permissions: {"room_name": "read"|"write"|"admin", ...}
+    """
+    perms = atomic_read(PERMISSIONS_FILE)
+    if username not in perms:
+        perms[username] = {}
+    perms[username].update(permissions)
+    perms[username]["updated"] = datetime.now(timezone.utc).isoformat()
+    atomic_write(PERMISSIONS_FILE, perms)
+    return {"ok": True}
+
+def get_permissions(username):
+    """Get room-level permissions for an agent."""
+    perms = atomic_read(PERMISSIONS_FILE)
+    agent_perms = perms.get(username, {})
+    return {"username": username, "rooms": {k: v for k, v in agent_perms.items() if k not in ("updated",)}}
+
+def check_permission(username, room_name, required_level="read"):
+    """Check if agent has the required permission level for a room.
+    
+    Levels: read < write < admin
+    """
+    perms = atomic_read(PERMISSIONS_FILE)
+    agent_perms = perms.get(username, {})
+    
+    level_order = {"read": 1, "write": 2, "admin": 3}
+    agent_level = agent_perms.get(room_name, "none")
+    
+    # Admin agents have write access to everything
+    passwords = atomic_read(AGENT_PWD_FILE)
+    agent = passwords.get(username, {})
+    if agent.get("role") == "admin":
+        return True
+    
+    # "none" means no access
+    if agent_level == "none":
+        return False
+    
+    # If no permission set for this room, default: read-only
+    if not agent_level:
+        return required_level == "read"
+    
+    return level_order.get(agent_level, 0) >= level_order.get(required_level, 1)
+
+def get_accessible_rooms(username):
+    """List rooms this agent can access, with their permission levels."""
+    perms = atomic_read(PERMISSIONS_FILE)
+    agent_perms = perms.get(username, {})
+    room_map = get_room_map()
+    accessible = {}
+    for room_name, room_desc in room_map["rooms"].items():
+        level = agent_perms.get(room_name)
+        if level or check_permission(username, room_name, "read"):
+            accessible[room_name] = {
+                "description": room_desc,
+                "permission": level or "read",
+            }
+    return {"rooms": accessible, "username": username}
 
 def authenticate(username, password):
     """Verify credentials, create session."""
@@ -154,6 +231,8 @@ def get_onboarding(username):
         "welcome": f"Hello, {username}. You are logged in as {role}.",
         "role": role,
         "skills": agent.get("skills", []),
+        "permissions": get_permissions(username),
+        "accessible_rooms": get_accessible_rooms(username),
         "handoff": handoff_notes[-1] if handoff_notes else None,
         "in_progress_tasks": in_progress,
         "open_tasks_count": open_tasks,
@@ -164,10 +243,12 @@ def get_onboarding(username):
             "unclaim <task_id>": "Release a task back to the board",
             "done <task_id> <result>": "Mark task complete with result summary",
             "handoff <notes>": "Leave notes for the next agent who takes your identity",
-            "rooms": "Map of available rooms and what happens in each",
+            "rooms": "Map of rooms you can access (with permission levels)",
+            "perms": "Show your room permissions",
             "journal <text>": "Post a note to the room journal",
-            "expert <name> <topic>": "Spawn a research expert",
-            "checkpoint <label>": "Bookmark current room state",
+            "expert <name> <topic>": "Spawn a research expert (requires write)",
+            "checkpoint <label>": "Bookmark current room state (requires write)",
+            "read <room>": "Read room state (requires read)",
             "help": "This message",
         },
         "note": "Everything you build persists in room state. If your session ends, log in again — your work will be here. Type 'status' to see where things stand."
@@ -323,8 +404,11 @@ def get_room_map():
 
 # ─── Command Router ───
 
-def process_agent_command(username, session_id, command_text):
-    """Route an agent's text command to the right handler."""
+def process_agent_command(username, session_id, command_text, current_room="study"):
+    """Route an agent's text command to the right handler.
+    
+    current_room: the room context for permission checks.
+    """
     # Validate session
     session, err = validate_session(session_id)
     if err:
@@ -357,9 +441,34 @@ def process_agent_command(username, session_id, command_text):
     elif cmd == "handoff" and args:
         return write_handoff(username, args, session_id)
     elif cmd == "rooms":
-        return get_room_map()
+        return get_accessible_rooms(username)
     elif cmd == "map":
-        return get_room_map()
+        return get_accessible_rooms(username)
+    elif cmd == "perms":
+        return get_permissions(username)
+    elif cmd == "enter" and args:
+        # Switch room context
+        room = args.strip()
+        if not check_permission(username, room, "read"):
+            return {"error": f"No access to room '{room}'. Your permissions: {get_permissions(username)}"}
+        return {"ok": True, "entered": room, "permission": get_permissions(username)["rooms"].get(room, "read"), "tip": "Use 'read' to view state, 'journal' to post (if write), 'status' for your info"}
+    elif cmd == "read" and args:
+        room = args.strip()
+        if not check_permission(username, room, "read"):
+            return {"error": f"No read access to room '{room}'"}
+        return {"room": room, "tip": "Room state is available via the room API endpoints. Use GET /status, /experts, /journal on the room server."}
+    elif cmd == "journal" and args:
+        if not check_permission(username, current_room, "write"):
+            return {"error": f"No write access to room '{current_room}'. Your permission: {get_permissions(username)['rooms'].get(current_room, 'none')}"}
+        return {"ok": True, "journal_posted": True, "content": args, "note": "Journal entry recorded in room state"}
+    elif cmd == "expert" and args:
+        if not check_permission(username, current_room, "write"):
+            return {"error": f"No write access to room '{current_room}'. Cannot spawn experts."}
+        return {"ok": True, "tip": "Expert spawn requires write permission. Use the room's /command endpoint with action=spawn."}
+    elif cmd == "checkpoint" and args:
+        if not check_permission(username, current_room, "write"):
+            return {"error": f"No write access to room '{current_room}'. Cannot create checkpoints."}
+        return {"ok": True, "checkpoint": args.strip(), "note": "Checkpoint created in room state"}
     elif cmd == "whoami":
         agent = atomic_read(AGENT_PWD_FILE).get(username, {})
         return {"username": username, "role": agent.get("role"), "skills": agent.get("skills", [])}

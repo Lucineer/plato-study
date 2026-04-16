@@ -112,14 +112,33 @@ async def agent_command(body: dict):
 
 @app.post("/agent/create")
 async def agent_create(body: dict):
-    """Admin: create an agent account."""
+    """Admin: create an agent account with room permissions."""
     admin_key = body.get("admin_key", "")
     if admin_key != os.environ.get("PLATO_ADMIN_KEY", "plato-admin"):
         return JSONResponse(status_code=403, content={"error": "Invalid admin key"})
     return _gateway.create_agent(
         body.get("username", ""), body.get("password", ""),
-        body.get("role", "worker"), body.get("skills", []), body.get("notes", "")
+        body.get("role", "worker"), body.get("skills", []), body.get("notes", ""),
+        body.get("permissions", {})
     )
+
+@app.post("/agent/set-permissions")
+async def agent_set_perms(body: dict):
+    """Admin: set room-level permissions for an agent."""
+    admin_key = body.get("admin_key", "")
+    if admin_key != os.environ.get("PLATO_ADMIN_KEY", "plato-admin"):
+        return JSONResponse(status_code=403, content={"error": "Invalid admin key"})
+    return _gateway.set_permissions(body.get("username", ""), body.get("permissions", {}))
+
+@app.get("/agent/permissions/{username}")
+async def agent_get_perms(username: str):
+    """Get an agent's room permissions."""
+    return _gateway.get_permissions(username)
+
+@app.get("/agent/accessible-rooms/{username}")
+async def agent_accessible_rooms(username: str):
+    """Get rooms accessible to an agent."""
+    return _gateway.get_accessible_rooms(username)
 
 @app.get("/agent/tasks")
 async def agent_tasks(status: str = None, assigned_to: str = None):
