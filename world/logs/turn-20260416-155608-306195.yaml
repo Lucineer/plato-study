@@ -1,0 +1,8 @@
+action: spawn
+agent: jc1
+result:
+  branch: expert/ptx-researcher
+  brief_file: world/briefs/ptx-researcher-20260416-155608.md
+  expert_id: ptx-researcher-20260416-155608
+  passed: true
+timestamp: '2026-04-16T15:56:08.306226+00:00'

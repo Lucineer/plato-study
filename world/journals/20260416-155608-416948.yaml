@@ -1,0 +1,8 @@
+content: 'Starting systematic survey of .maxntid behavior. Hypothesis: .maxntid must
+  appear between parameter list and opening brace. Need to test with multiple configurations:
+  (1) before params (2) after params before brace (3) after brace (4) no .maxntid
+  at all. Expecting (2) to be the only valid position.'
+expert_id: ptx-researcher-20260416-153500
+id: 20260416-155608-416948
+timestamp: '2026-04-16T15:56:08.416969+00:00'
+type: note

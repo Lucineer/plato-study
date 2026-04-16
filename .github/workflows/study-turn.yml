@@ -1,0 +1,19 @@
+name: Study Turn
+on:
+  push:
+    paths: ['world/commands/**']
+    branches: [master, main]
+jobs:
+  process:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - run: python3 bridges/study_engine.py --world-dir world
+      - run: |
+          git config user.name "Study Engine"
+          git config user.email "study@plato.local"
+          git add -A
+          git diff --staged --quiet || git commit -m "Study turn: $(date -u +%Y%m%d-%H%M%S)"
+          git push

@@ -1,0 +1,19 @@
+branch: expert/ptx-researcher
+brief: 'Research and document all PTX patterns that affect Jetson Orin Nano (sm_87)
+  and ESP32 constraints. Focus on: register pressure vs occupancy tradeoffs, pointer
+  arithmetic pitfalls, .maxntid placement rules, atomic operation limitations on ARM64.
+  Create a comprehensive reference guide in research/ptx-patterns/'
+budget_tokens: 50000
+checkpoints: []
+created: '2026-04-16T15:56:08.302282+00:00'
+forked_from: null
+id: ptx-researcher-20260416-155608
+last_activity: null
+max_rounds: 10
+model: deepseek-chat
+name: ptx-researcher
+rounds_completed: 0
+spawner: jc1
+status: spawned
+tokens_used: 0
+topic: PTX constraint patterns for edge deployment

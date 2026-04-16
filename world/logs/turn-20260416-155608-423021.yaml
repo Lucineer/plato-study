@@ -1,0 +1,21 @@
+action: status
+agent: jc1
+result:
+  active_experts: 1
+  experts:
+  - budget: 50000
+    checkpoints: 0
+    forked_from: null
+    id: ptx-researcher-20260416-155608
+    max_rounds: 10
+    model: deepseek-chat
+    name: ptx-researcher
+    rounds: 0
+    status: spawned
+    tokens: 0
+    topic: PTX constraint patterns for edge deployment
+  passed: true
+  stats:
+    experts_spawned: 1
+  total_experts: 1
+timestamp: '2026-04-16T15:56:08.423059+00:00'

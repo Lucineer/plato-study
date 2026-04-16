@@ -1,0 +1,8 @@
+content: "Key discovery: mul.wide.u32 is the ONLY way to produce a 64-bit result from\
+  \ 32-bit operands in PTX. add.u64 cannot accept u32 operands \u2014 this is a common\
+  \ source of compilation errors. Inline multiply syntax (%i*4) is not valid PTX.\
+  \ Must use: mul.wide.u32 %rd_dst, %r_src"
+expert_id: ptx-researcher-20260416-153500
+id: 20260416-155608-413100
+timestamp: '2026-04-16T15:56:08.413126+00:00'
+type: finding
