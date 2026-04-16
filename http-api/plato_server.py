@@ -44,12 +44,7 @@ class Command(BaseModel):
         extra = "allow"
 
 @app.post("/command")
-async def run_command(request: Request):
-    try:
-        body = await request.json()
-    except:
-        body = {}
-    cmd = dict(body)
+async def run_command(cmd: Command):
     cid = f"{os.urandom(4).hex()}"
     cmds = BASE / "commands"
     cmds.mkdir(parents=True, exist_ok=True)
