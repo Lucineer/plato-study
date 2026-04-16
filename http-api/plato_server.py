@@ -81,5 +81,12 @@ async def root():
         return HTMLResponse(html_file.read_text())
     return JSONResponse({"room": "PLATO Study", "docs": "/docs", "status": "/status", "experts": "/experts", "journal": "/journal", "command": "/command", "github": "https://github.com/Lucineer/plato-study"})
 
+@app.get("/lighthouse")
+async def lighthouse():
+    lh_file = Path(__file__).parent / "lighthouse.html"
+    if lh_file.exists():
+        return HTMLResponse(lh_file.read_text())
+    return JSONResponse({"error": "lighthouse.html not found"})
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8100)

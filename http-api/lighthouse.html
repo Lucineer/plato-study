@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLATO Lighthouse</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#2a2a3a;--text:#e0e0e0;--dim:#666680;--accent:#7c6ff7;--green:#4ade80;--amber:#fbbf24;--red:#f87171;--blue:#60a5fa}
+body{font-family:'JetBrains Mono','Fira Code','SF Mono',monospace;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+
+/* ─── Onboarding ─── */
+#onboard{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+#onboard.hidden{display:none}
+.ob-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto}
+.ob-box h1{text-align:center;font-size:20px;margin-bottom:4px}
+.ob-box .sub{text-align:center;color:var(--dim);font-size:12px;margin-bottom:24px}
+.ob-box h2{font-size:14px;color:var(--accent);margin:20px 0 12px;display:flex;align-items:center;gap:8px}
+.ob-box label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px;margin-top:12px}
+.ob-box input,.ob-box select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;outline:none}
+.ob-box input:focus{border-color:var(--accent)}
+.ob-box .hint{font-size:11px;color:var(--dim);margin-top:2px}
+.ob-row{display:flex;gap:8px;align-items:end}
+.ob-row input{flex:1}
+.ob-row button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;white-space:nowrap}
+.ob-row button:hover{opacity:.9}
+.ob-row button.danger{background:var(--red)}
+.provider-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.provider-card .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.provider-card .head strong{font-size:13px}
+.provider-card .head button{background:none;border:1px solid var(--red);color:var(--red);border-radius:4px;padding:2px 8px;font-size:11px}
+.provider-card .models{font-size:11px;color:var(--dim);margin-top:4px}
+.ob-nav{display:flex;justify-content:space-between;margin-top:24px}
+.ob-nav button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px 24px;font-size:13px}
+.ob-nav button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.ob-step{display:none}
+.ob-step.active{display:block}
+
+/* ─── Main UI ─── */
+#app{display:none;height:100vh;flex-direction:column}
+#app.active{display:flex}
+#statusbar{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:16px;font-size:12px;flex-shrink:0}
+#statusbar .room{color:var(--accent);font-weight:bold}
+#statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+#statusbar .meta{color:var(--dim)}
+#statusbar .meta span{margin-right:12px}
+
+#main{flex:1;display:flex;overflow:hidden}
+
+/* Sidebar */
+#sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.nav-section{padding:8px}
+.nav-section h3{font-size:10px;text-transform:uppercase;color:var(--dim);letter-spacing:1px;margin-bottom:4px;padding:4px 8px}
+.nav-item{padding:6px 12px;border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px}
+.nav-item:hover{background:rgba(124,111,247,.1)}
+.nav-item.active{background:rgba(124,111,247,.2);color:var(--accent)}
+#expert-list{flex:1;overflow-y:auto}
+.expert-item{padding:8px 12px;border-radius:4px;cursor:pointer}
+.expert-item:hover{background:rgba(74,222,128,.05)}
+.expert-name{font-size:13px;color:var(--green)}
+.expert-meta{font-size:11px;color:var(--dim);margin-top:2px}
+
+/* Chat */
+#chat{flex:1;display:flex;flex-direction:column;min-width:0}
+#messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.msg.system{align-self:center;color:var(--dim);font-size:12px;background:rgba(255,255,255,.03)}
+.msg.user{align-self:flex-end;background:var(--accent);color:#fff}
+.msg.result{align-self:flex-start;background:var(--surface);border:1px solid var(--border)}
+.msg.error{align-self:flex-start;background:rgba(248,113,113,.1);border:1px solid var(--red);color:var(--red)}
+.msg.journal{align-self:flex-start;background:rgba(74,222,128,.05);border-left:3px solid var(--green)}
+.msg.thinking{align-self:flex-start;background:rgba(96,165,250,.05);border-left:3px solid var(--blue)}
+.msg .label{font-size:10px;color:var(--dim);margin-bottom:4px}
+.msg .label strong{color:var(--accent)}
+
+#quick-actions{padding:8px 16px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+.quick-btn{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;color:var(--dim);cursor:pointer;font-family:inherit}
+.quick-btn:hover{border-color:var(--accent);color:var(--text)}
+
+#input-area{border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px;flex-shrink:0}
+#input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none}
+#input:focus{border-color:var(--accent)}
+#send{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px}
+#send:hover{opacity:.9}
+
+/* Settings modal */
+#settings-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:none;align-items:center;justify-content:center}
+#settings-modal.active{display:flex}
+.settings-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.settings-box h2{margin-bottom:16px}
+.settings-box .close{float:right;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ═══════ ONBOARDING ═══════ -->
+<div id="onboard">
+<div class="ob-box">
+  <h1>⚓ PLATO Lighthouse</h1>
+  <p class="sub">Your personal AI assistant for PLATO rooms. Zero-trust. Self-contained.</p>
+
+  <!-- Step 1: Identity -->
+  <div class="ob-step active" data-step="1">
+    <h2>👤 Who are you?</h2>
+    <label>Your name</label>
+    <input id="ob-name" placeholder="Captain" autofocus>
+    <label>Room server URL</label>
+    <input id="ob-room-url" placeholder="https://your-codespace-8100.app.github.dev">
+    <p class="hint">The PLATO room you want to connect to. Can be changed later.</p>
+  </div>
+
+  <!-- Step 2: Providers -->
+  <div class="ob-step" data-step="2">
+    <h2>🔑 API Providers</h2>
+    <p class="sub" style="text-align:left">Add providers so your experts can think. Keys are stored in your browser only — never sent to any server except the LLM provider directly.</p>
+    <div id="ob-providers"></div>
+    <div class="ob-row" style="margin-top:12px">
+      <select id="ob-add-provider" style="flex:1">
+        <option value="">Add provider...</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+        <option value="siliconflow">SiliconFlow</option>
+        <option value="deepinfra">DeepInfra</option>
+        <option value="groq">Groq</option>
+        <option value="google">Google (Gemini)</option>
+        <option value="moonshot">Moonshot (Kimi)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <button onclick="addProvider()">Add</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Done -->
+  <div class="ob-step" data-step="3">
+    <h2>✅ Ready</h2>
+    <p style="margin:16px 0;line-height:1.8;font-size:13px">
+      Your lighthouse is configured. Everything is stored in your browser's local storage.
+      <br><br>
+      💾 <strong>Save this file</strong> — use Ctrl+S or the save button below. It's a single HTML file. Open it anywhere to continue.
+      <br><br>
+      ☁️ <strong>Upload to a repo</strong> — push to any GitHub repo, open in Codespaces, and it becomes your hosted lighthouse.
+      <br><br>
+      🔒 <strong>Zero trust</strong> — your API keys never leave your browser except to the LLM providers you configured.
+    </p>
+  </div>
+
+  <div class="ob-nav">
+    <button id="ob-prev" onclick="obNav(-1)" style="visibility:hidden">← Back</button>
+    <button id="ob-next" onclick="obNav(1)" class="primary">Next →</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══════ MAIN APP ═══════ -->
+<div id="app">
+  <div id="statusbar">
+    <div class="dot" id="conn-dot"></div>
+    <div class="room" id="room-name">PLATO</div>
+    <div class="meta">
+      <span id="meta-experts">0 experts</span>
+      <span id="meta-journal">0 entries</span>
+      <span id="meta-user"></span>
+    </div>
+    <div style="margin-left:auto">
+      <button class="quick-btn" onclick="saveLighthouse()">💾 Save</button>
+      <button class="quick-btn" onclick="openSettings()">⚙️</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <div class="nav-section">
+        <h3>Rooms</h3>
+        <div class="nav-item active" onclick="showView('chat')">💬 Chat</div>
+        <div class="nav-item" onclick="showView('experts')">🧠 Experts</div>
+        <div class="nav-item" onclick="showView('journal')">📖 Journal</div>
+        <div class="nav-item" onclick="refresh()">🔄 Refresh</div>
+      </div>
+      <div class="nav-section">
+        <h3>Experts</h3>
+        <div id="expert-list"></div>
+      </div>
+    </div>
+
+    <div id="chat">
+      <div id="messages"></div>
+      <div id="quick-actions">
+        <button class="quick-btn" onclick="quickSpawn()">🧠 Spawn</button>
+        <button class="quick-btn" onclick="quickThink()">💡 Think</button>
+        <button class="quick-btn" onclick="quickJournal()">📝 Journal</button>
+        <button class="quick-btn" onclick="quickCheckpoint()">📌 Checkpoint</button>
+        <button class="quick-btn" onclick="quickHelp()">❓ Help</button>
+      </div>
+      <div id="input-area">
+        <input id="input" placeholder="Type a command... (try /help)">
+        <button id="send" onclick="handleInput()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ SETTINGS MODAL ═══════ -->
+<div id="settings-modal">
+<div class="settings-box">
+  <button class="close" onclick="closeSettings()">✕</button>
+  <h2>⚙️ Settings</h2>
+  <label>Room Server URL</label>
+  <input id="set-room-url" onchange="updateRoomUrl()">
+  <h2 style="margin-top:20px">🔑 API Providers</h2>
+  <p class="sub" style="text-align:left;margin-bottom:12px">Keys stored in browser only.</p>
+  <div id="set-providers"></div>
+  <div class="ob-row" style="margin-top:12px">
+    <select id="set-add-provider" style="flex:1">
+      <option value="">Add provider...</option>
+      <option value="deepseek">DeepSeek</option>
+      <option value="openai">OpenAI</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="siliconflow">SiliconFlow</option>
+      <option value="deepinfra">DeepInfra</option>
+      <option value="groq">Groq</option>
+      <option value="google">Google (Gemini)</option>
+      <option value="moonshot">Moonshot (Kimi)</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <button onclick="addProviderSettings()">Add</button>
+  </div>
+  <div style="margin-top:20px">
+    <button onclick="exportConfig()" class="quick-btn">📤 Export Config</button>
+    <button onclick="resetAll()" class="quick-btn" style="border-color:var(--red);color:var(--red);margin-left:8px">🗑️ Reset All</button>
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// PLATO LIGHTHOUSE — Single-File AI Agent
+// ═══════════════════════════════════════
+
+const PROVIDERS = {
+  deepseek:    { name: 'DeepSeek',    base_url: 'https://api.deepseek.com/v1', models: ['deepseek-chat','deepseek-reasoner'] },
+  openai:      { name: 'OpenAI',      base_url: 'https://api.openai.com/v1', models: ['gpt-4o','gpt-4o-mini','o3-mini'] },
+  anthropic:   { name: 'Anthropic',   base_url: 'https://api.anthropic.com/v1', models: ['claude-sonnet-4-20250514','claude-haiku-4-20250414'] },
+  siliconflow: { name: 'SiliconFlow', base_url: 'https://api.siliconflow.com/v1', models: ['deepseek-ai/DeepSeek-V3','Qwen/Qwen3-32B','Qwen/Qwen3.5-397B-A17B'] },
+  deepinfra:   { name: 'DeepInfra',   base_url: 'https://api.deepinfra.com/v1/openai', models: ['meta-llama/Meta-Llama-3.1-405B-Instruct','Qwen/Qwen3-32B','microsoft/phi-4'] },
+  groq:        { name: 'Groq',        base_url: 'https://api.groq.com/openai/v1', models: ['llama-3.1-8b-instant','llama-3.3-70b-versatile'] },
+  google:      { name: 'Google',      base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', models: ['gemini-2.0-flash','gemini-2.5-pro'] },
+  moonshot:    { name: 'Moonshot',    base_url: 'https://api.moonshot.cn/v1', models: ['moonshot-v1-128k','moonshot-v1-32k'] },
+};
+
+let config = JSON.parse(localStorage.getItem('plato_config') || 'null') || {
+  name: '', roomUrl: '', providers: {}, defaultModel: null
+};
+let experts = [];
+let currentExpert = null;
+let state = {};
+let obStep = 1;
+
+// ─── Config persistence ───
+function saveConfig() { localStorage.setItem('plato_config', JSON.stringify(config)); }
+
+function getConfig() { return config; }
+
+// ─── Onboarding ───
+function initOnboard() {
+  const ob = document.getElementById('onboard');
+  const app = document.getElementById('app');
+  if (config.name && Object.keys(config.providers).length > 0) {
+    ob.classList.add('hidden');
+    app.classList.add('active');
+    bootApp();
+    return;
+  }
+  document.getElementById('ob-name').value = config.name || '';
+  document.getElementById('ob-room-url').value = config.roomUrl || '';
+  renderProviderCards('ob-providers');
+  showStep(1);
+}
+
+function showStep(n) {
+  obStep = n;
+  document.querySelectorAll('.ob-step').forEach(s => s.classList.toggle('active', +s.dataset.step === n));
+  document.getElementById('ob-prev').style.visibility = n > 1 ? 'visible' : 'hidden';
+  document.getElementById('ob-next').textContent = n >= 3 ? '⚓ Enter PLATO' : 'Next →';
+}
+
+function obNav(dir) {
+  if (dir === 1 && obStep === 1) {
+    config.name = document.getElementById('ob-name').value.trim() || 'Captain';
+    config.roomUrl = document.getElementById('ob-room-url').value.trim().replace(/\/+$/, '');
+    saveConfig();
+  }
+  if (dir === 1 && obStep >= 3) {
+    document.getElementById('onboard').classList.add('hidden');
+    document.getElementById('app').classList.add('active');
+    bootApp();
+    return;
+  }
+  showStep(Math.max(1, Math.min(3, obStep + dir)));
+}
+
+function addProvider() {
+  const sel = document.getElementById('ob-add-provider');
+  const key = sel.value;
+  if (!key) return;
+  const p = PROVIDERS[key] || { name: key, base_url: 'https://', models: [] };
+  const apiKey = prompt(`${p.name}\n\nAPI Key:`);
+  if (!apiKey) return;
+  config.providers[key] = { name: p.name, base_url: p.base_url, key: apiKey, models: [...p.models] };
+  if (!config.defaultModel && p.models.length) config.defaultModel = `${key}/${p.models[0]}`;
+  saveConfig();
+  renderProviderCards('ob-providers');
+  sel.value = '';
+}
+
+function removeProvider(key) {
+  delete config.providers[key];
+  if (config.defaultModel?.startsWith(key + '/')) config.defaultModel = null;
+  saveConfig();
+  renderProviderCards('ob-providers');
+  renderProviderCards('set-providers');
+}
+
+function renderProviderCards(containerId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (const [key, p] of Object.entries(config.providers)) {
+    const masked = p.key.slice(0, 8) + '...' + p.key.slice(-4);
+    el.innerHTML += `<div class="provider-card"><div class="head"><strong>${p.name}</strong><button onclick="removeProvider('${key}')">✕</button></div><div style="font-size:11px;color:var(--dim)">Key: ${masked}</div><div class="models">${p.models.join(', ')}</div></div>`;
+  }
+}
+
+// ─── Settings ───
+function openSettings() {
+  document.getElementById('settings-modal').classList.add('active');
+  document.getElementById('set-room-url').value = config.roomUrl;
+  renderProviderCards('set-providers');
+}
+function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
+function updateRoomUrl() {
+  config.roomUrl = document.getElementById('set-room-url').value.trim().replace(/\/+$/, '');
+  saveConfig();
+}
+function addProviderSettings() {
+  const sel = document.getElementById('set-add-provider');
+  const key = sel.value;
+  if (!key) return;
+  const p = PROVIDERS[key] || { name: key, base_url: 'https://', models: [] };
+  const apiKey = prompt(`${p.name}\n\nAPI Key (or blank to keep existing):`);
+  if (apiKey) {
+    config.providers[key] = { name: p.name, base_url: p.base_url, key: apiKey, models: [...p.models] };
+    if (!config.defaultModel && p.models.length) config.defaultModel = `${key}/${p.models[0]}`;
+  }
+  saveConfig();
+  renderProviderCards('set-providers');
+  sel.value = '';
+}
+function exportConfig() {
+  const safe = { ...config };
+  for (const p of Object.values(safe.providers)) { p.key = p.key.slice(0, 8) + '...'; }
+  const blob = new Blob([JSON.stringify(safe, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'plato-lighthouse-config.json';
+  a.click();
+}
+function resetAll() {
+  if (!confirm('Delete all lighthouse data? (keys, room config, everything)')) return;
+  localStorage.removeItem('plato_config');
+  location.reload();
+}
+
+// ─── Save as single file ───
+function saveLighthouse() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'plato-lighthouse.html';
+  a.click();
+  msg('💾 Lighthouse saved as single HTML file.', 'system');
+}
+
+// ─── App ───
+const API = () => config.roomUrl || '';
+
+async function api(path, body = null) {
+  const base = API();
+  if (!base) throw new Error('No room URL configured');
+  const opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {};
+  const r = await fetch(base + path, opts);
+  return r.json();
+}
+
+function msg(text, type = 'system', label = '') {
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  if (label) div.innerHTML = `<div class="label">${label}</div>`;
+  div.appendChild(document.createTextNode(text));
+  const messages = document.getElementById('messages');
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+async function refresh() {
+  try {
+    const [statusData, expertsData, journalData] = await Promise.all([
+      api('/status'), api('/experts'), api('/journal')
+    ]);
+    experts = expertsData.experts || [];
+    updateSidebar(experts);
+    document.getElementById('meta-experts').textContent = experts.length + ' experts';
+    document.getElementById('meta-journal').textContent = (journalData.entries || []).length + ' entries';
+    document.getElementById('conn-dot').style.background = 'var(--green)';
+    document.getElementById('room-name').textContent = (statusData.study || statusData.plato_study || {}).name || 'PLATO';
+  } catch (e) {
+    document.getElementById('conn-dot').style.background = 'var(--red)';
+  }
+}
+
+function updateSidebar(exps) {
+  const list = document.getElementById('expert-list');
+  list.innerHTML = '';
+  exps.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'expert-item';
+    div.innerHTML = `<div class="expert-name">${e.name}</div><div class="expert-meta">${e.topic} · ${e.status} · ${e.rounds_completed}/${e.max_rounds}</div>`;
+    div.onclick = () => { currentExpert = e.id; state.expertName = e.name; updateSidebar(exps); msg(`Selected expert: ${e.name}`, 'system'); };
+    list.appendChild(div);
+  });
+}
+
+// ─── LLM calls (direct from browser) ───
+async function callLLM(prompt, system = '', model = null) {
+  if (!model) model = config.defaultModel;
+  if (!model) return { error: 'No model configured. Add a provider in settings.' };
+  const [provKey, modelId] = model.split('/', 2);
+  const prov = config.providers[provKey];
+  if (!prov) return { error: `Provider ${provKey} not found` };
+  const url = `${prov.base_url}/chat/completions`;
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: prompt });
+
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${prov.key}` },
+      body: JSON.stringify({ model: modelId, messages, max_tokens: 4096, temperature: 0.7 }),
+    });
+    const data = await r.json();
+    if (data.error) return { error: data.error.message || JSON.stringify(data.error) };
+    return { text: data.choices?.[0]?.message?.content || '' };
+  } catch (e) {
+    return { error: `LLM call failed: ${e.message}. CORS may be blocked — use a room server proxy or a browser extension.` };
+  }
+}
+
+// ─── Views ───
+function showView(view) {
+  document.querySelectorAll('.nav-item').forEach((n, i) => {
+    n.classList.toggle('active', (view === 'chat' && i === 0) || (view === 'experts' && i === 1) || (view === 'journal' && i === 2));
+  });
+  if (view === 'journal') loadJournal();
+  if (view === 'experts') loadExperts();
+}
+
+async function loadJournal() {
+  const data = await api('/journal');
+  document.getElementById('messages').innerHTML = '';
+  (data.entries || []).reverse().forEach(e => {
+    msg(`[${e.type}] ${e.content}`, e.type === 'finding' ? 'journal' : 'result', `${e.expert_id} · ${new Date(e.timestamp).toLocaleTimeString()}`);
+  });
+}
+
+async function loadExperts() {
+  const data = await api('/experts');
+  document.getElementById('messages').innerHTML = '';
+  (data.experts || []).forEach(e => {
+    msg(`${e.name} — ${e.topic}\nModel: ${e.model} | Budget: ${e.budget_tokens} | Rounds: ${e.rounds_completed}/${e.max_rounds}\nStatus: ${e.status} | Checkpoints: ${e.checkpoints.length}\nBranch: ${e.branch}`, 'result', e.id);
+  });
+}
+
+// ─── Quick actions ───
+function quickSpawn() {
+  state = { step: 'spawn_name' };
+  msg('Spawning expert. Name?', 'system');
+  document.getElementById('input').placeholder = 'Expert name';
+  document.getElementById('input').focus();
+}
+
+function quickThink() {
+  if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+  const exp = experts.find(e => e.id === currentExpert);
+  if (!exp) { msg('Expert not found.', 'system'); return; }
+  state = { step: 'think_prompt', expert: exp };
+  msg(`Asking ${exp.name} to think. What's your question?`, 'system');
+  document.getElementById('input').placeholder = 'Your question or task...';
+  document.getElementById('input').focus();
+}
+
+function quickJournal() {
+  if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+  state = { step: 'journal_content' };
+  msg('Journal entry:', 'system');
+  document.getElementById('input').placeholder = 'Your note...';
+  document.getElementById('input').focus();
+}
+
+function quickCheckpoint() {
+  if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+  state = { step: 'checkpoint_label' };
+  msg('Checkpoint label:', 'system');
+  document.getElementById('input').placeholder = 'Label (e.g. good-progress)';
+  document.getElementById('input').focus();
+}
+
+function quickHelp() {
+  msg(`⚓ PLATO Lighthouse — Commands
+──────────────────────────────
+/spawn <name> <topic>    Spawn expert
+/think <question>        Ask expert to think (uses YOUR keys)
+/journal <text>          Post journal entry
+/checkpoint <label>      Bookmark state
+/rewind <sha|label>      Reset expert to checkpoint
+/fork <old> <new>        Fork expert from checkpoint
+/status                  Room status
+/experts                 List experts
+/journal-list            View journal
+/select <id>             Select expert
+/model <provider/model>  Set default model
+/save                    Download lighthouse file
+/settings                Open settings
+/help                    This message
+──────────────────────────────
+💡 /think uses YOUR API keys directly.
+   No tokens leave your browser except to your provider.`, 'system');
+}
+
+// ─── Input handler ───
+const input = document.getElementById('input');
+input.addEventListener('keydown', e => { if (e.key === 'Enter') handleInput(); });
+
+async function handleInput() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.placeholder = 'Type a command... (try /help)';
+
+  // Multi-step flows
+  if (state.step === 'spawn_name') {
+    state.expertName = text;
+    state.step = 'spawn_topic';
+    msg(`Expert "${text}". Topic?`, 'system');
+    input.placeholder = 'Research topic';
+    return;
+  }
+  if (state.step === 'spawn_topic') {
+    state.topic = text;
+    state.step = 'spawn_brief';
+    msg('Brief? (empty to skip)', 'system');
+    input.placeholder = 'Instructions (optional)';
+    return;
+  }
+  if (state.step === 'spawn_brief') {
+    const r = await api('/command', {
+      agent: config.name || 'lighthouse', action: 'spawn',
+      expert: state.expertName, topic: state.topic, brief: text,
+      model: config.defaultModel?.split('/')[1] || 'deepseek-chat',
+      budget_tokens: 50000, max_rounds: 20,
+    });
+    state = {};
+    input.placeholder = 'Type a command... (try /help)';
+    if (r.result?.passed) {
+      msg(`✓ ${state.expertName} spawned (${r.result.expert_id})`, 'journal', 'Expert');
+      currentExpert = r.result.expert_id;
+      refresh();
+    } else msg(`Failed: ${JSON.stringify(r)}`, 'error');
+    return;
+  }
+  if (state.step === 'think_prompt') {
+    const exp = state.expert;
+    msg(text, 'user', `You → ${exp.name}`);
+    msg('🧠 Thinking...', 'thinking', exp.name);
+    const r = await callLLM(text, `You are ${exp.name}, researching: ${exp.topic}\n\nBrief: ${exp.brief}\n\nProvide your analysis. Be thorough but concise.`, exp.model);
+    state = {};
+    input.placeholder = 'Type a command... (try /help)';
+    if (r.error) {
+      msg(`Error: ${r.error}`, 'error');
+    } else {
+      msg(r.text, 'thinking', `${exp.name} responded`);
+      // Auto-journal the response
+      await api('/command', { agent: config.name, action: 'journal', expert_id: exp.id, type: 'finding', content: r.text.slice(0, 2000) });
+      refresh();
+    }
+    return;
+  }
+  if (state.step === 'journal_content') {
+    msg(text, 'journal', `You → ${currentExpert}`);
+    await api('/command', { agent: config.name, action: 'journal', expert_id: currentExpert, type: 'note', content: text });
+    state = {};
+    input.placeholder = 'Type a command... (try /help)';
+    refresh();
+    return;
+  }
+  if (state.step === 'checkpoint_label') {
+    const r = await api('/command', { agent: config.name, action: 'checkpoint', expert_id: currentExpert, label: text });
+    state = {};
+    input.placeholder = 'Type a command... (try /help)';
+    msg(r.result?.passed ? `✓ Checkpoint "${text}" at ${r.result.sha?.slice(0, 8)}` : `Failed`, r.result?.passed ? 'journal' : 'error');
+    refresh();
+    return;
+  }
+
+  // Slash commands
+  msg(text, 'user', 'You');
+  if (text.startsWith('/')) {
+    const parts = text.slice(1).split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1).join(' ');
+
+    if (cmd === 'help') { quickHelp(); return; }
+    if (cmd === 'status') { const d = await api('/status'); msg(JSON.stringify(d, null, 2), 'result'); return; }
+    if (cmd === 'experts') { loadExperts(); return; }
+    if (cmd === 'journal-list') { loadJournal(); return; }
+    if (cmd === 'save') { saveLighthouse(); return; }
+    if (cmd === 'settings') { openSettings(); return; }
+    if (cmd === 'model') { config.defaultModel = args; saveConfig(); msg(`Default model: ${args}`, 'system'); return; }
+    if (cmd === 'select') { currentExpert = args; msg(`Selected: ${args}`, 'system'); refresh(); return; }
+    if (cmd === 'spawn' && args) {
+      const s = args.split(/\s+/);
+      const r = await api('/command', { agent: config.name, action: 'spawn', expert: s[0], topic: s.slice(1).join(' ') || 'Research', brief: '', budget_tokens: 50000, max_rounds: 20 });
+      msg(r.result?.passed ? `✓ ${s[0]} spawned` : `Failed`, r.result?.passed ? 'journal' : 'error');
+      if (r.result?.expert_id) currentExpert = r.result.expert_id;
+      refresh(); return;
+    }
+    if (cmd === 'journal' && args) {
+      if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+      await api('/command', { agent: config.name, action: 'journal', expert_id: currentExpert, type: 'note', content: args });
+      refresh(); return;
+    }
+    if (cmd === 'checkpoint') {
+      if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+      const r = await api('/command', { agent: config.name, action: 'checkpoint', expert_id: currentExpert, label: args || undefined });
+      msg(r.result?.passed ? `✓ Checkpoint saved` : `Failed`, r.result?.passed ? 'journal' : 'error');
+      refresh(); return;
+    }
+    if (cmd === 'think' && args) {
+      if (!currentExpert) { msg('Select an expert first.', 'system'); return; }
+      const exp = experts.find(e => e.id === currentExpert);
+      if (!exp) { msg('Expert not found.', 'system'); return; }
+      msg('🧠 Thinking...', 'thinking', exp.name);
+      const r = await callLLM(args, `You are ${exp.name}, researching: ${exp.topic}. Brief: ${exp.brief}`, exp.model);
+      if (r.error) { msg(`Error: ${r.error}`, 'error'); }
+      else { msg(r.text, 'thinking', `${exp.name} responded`); await api('/command', { agent: config.name, action: 'journal', expert_id: exp.id, type: 'finding', content: r.text.slice(0, 2000) }); refresh(); }
+      return;
+    }
+    msg(`Unknown: /${cmd}. Try /help`, 'error');
+  } else {
+    // Natural text → think if expert selected, else journal
+    if (currentExpert) {
+      const exp = experts.find(e => e.id === currentExpert);
+      if (exp) {
+        msg('🧠 Thinking...', 'thinking', exp.name);
+        const r = await callLLM(text, `You are ${exp.name}, researching: ${exp.topic}. Brief: ${exp.brief}`, exp.model);
+        if (r.error) { msg(`Error: ${r.error}`, 'error'); }
+        else { msg(r.text, 'thinking', `${exp.name}`); await api('/command', { agent: config.name, action: 'journal', expert_id: exp.id, type: 'finding', content: r.text.slice(0, 2000) }); refresh(); }
+      }
+    } else {
+      msg('No expert selected. /spawn <name> <topic> or /help', 'system');
+    }
+  }
+}
+
+// ─── Boot ───
+function bootApp() {
+  document.getElementById('meta-user').textContent = config.name;
+  refresh();
+  msg(`⚓ Lighthouse active. Connected to ${config.roomUrl || 'no room'}`, 'system');
+  msg(`Welcome, ${config.name}. Type /help for commands.`, 'system');
+  msg(`💡 /think uses YOUR API keys directly from your browser.`, 'system');
+}
+
+initOnboard();
+</script>
+</body>
+</html>
